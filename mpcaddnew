@@ -1,0 +1,66 @@
+#!/bin/zsh
+# mpcadd - play a file using mpc, even if its not in the database.  without clearing the playlist
+# 
+#
+# ameba -april 17
+#      
+#
+
+# needs trailing /
+mpddir="/home/potatoe/Musique/"
+
+# Escape special characters in the path so we can use it in a regular expression, using sed:
+# this seems to work perfectly, but it messes up the syntax highlighting for the rest of the script:
+escapedmpddir=$((echo $mpddir | sed -r 's/([\$\.\*\/\[\\^])/\\\1/g' | sed 's/[]]/\[]]/g') >&1 ) 
+
+
+function test_firstfile {
+   # play, starting from the first file we added
+    if [[ $firstfile = 1 ]]
+    then 
+      firstfile=0
+      if [[ $playflag != "--noplay" ]]; then
+        mpc play $tracknum
+      fi
+    fi
+}
+
+function usage_info {
+
+  echo " mpcadd - add a file to mpc playlist, even if its not in the mpc database.  without clearing the playlist"
+  echo " if directories are passed, they will be expanded recursively"
+  echo " Usage: mpclocal file(s)"
+
+}
+
+firstfile=1
+playflag=$1
+
+# find the position in the mpd playlist to startplaying from:
+tracknum=$(echo $(mpc playlist | wc -l) + 1 | bc)
+
+while read var
+do
+  fullpathfile=$(readlink -f $var)
+  if [[ $fullpathfile = $mpddir* ]]; then
+
+     # trim the path so that it becomes relative to the music directory
+     fname=$(echo $fullpathfile | sed "s/^"$escapedmpddir"//g")
+     mpc add $fname && test_firstfile
+    
+  else   
+    
+      mpc add "file:///$(readlink -f $var)" && test_firstfile
+
+      #echo $var >> /home/potatoe/logfile.txt
+     
+  fi
+#done < "${1:-/dev/stdin}"
+done < "/dev/stdin"
+
+# if no files were added
+#if [ $firstfile = 1 ]
+# test if arguments were passed
+#if [ -z "$1" ]; then
+#usage_info
+#fi
